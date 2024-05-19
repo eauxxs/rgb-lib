@@ -201,7 +201,7 @@ pub(crate) fn check_test_wallet_data(
     );
     // asset metadata
     let metadata = test_get_asset_metadata(wallet, &asset.asset_id);
-    assert_eq!(metadata.asset_iface, AssetIface::RGB20);
+    assert_eq!(metadata.asset_iface, AssetIface::RGB20Fixed);
     assert_eq!(metadata.issued_supply, issued_supply);
     assert_eq!(metadata.name, asset.name);
     assert_eq!(metadata.precision, asset.precision);

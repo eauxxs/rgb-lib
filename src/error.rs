@@ -3,6 +3,11 @@
 //! This module defines the [`Error`] enum, containing all error variants returned by functions in
 //! the library.
 
+use std::fmt::Display;
+
+use rgb::persistence::{IndexProvider, MemStash, StashProvider, StateProvider, StockError};
+use rgbinvoice::TransportParseError;
+
 use super::*;
 
 /// The error variants returned by functions.
@@ -449,10 +454,10 @@ pub enum InternalError {
     RgbLoad(#[from] rgbstd::containers::LoadError),
 
     #[error("RGB runtime error: {0}")]
-    RgbRuntime(#[from] rgb_rt::RuntimeError),
+    RgbRuntime(#[from] StockError),
 
     #[error("RGB stash error: {0}")]
-    RgbStash(#[from] rgbstd::persistence::StashError<std::convert::Infallible>),
+    RgbStash(#[from] rgbstd::persistence::StashError<MemStash>),
 
     #[error("Seal parse error: {0}")]
     SealParse(#[from] bp::seals::txout::explicit::ParseError),
@@ -532,30 +537,30 @@ impl From<bdk::blockchain::esplora::EsploraError> for Error {
     }
 }
 
-impl From<rgbstd::persistence::ConsignerError<std::convert::Infallible, std::convert::Infallible>>
-    for InternalError
-{
-    fn from(
-        e: rgbstd::persistence::ConsignerError<std::convert::Infallible, std::convert::Infallible>,
-    ) -> Self {
-        InternalError::RgbConsigner(e.to_string())
-    }
-}
+// impl From<rgbstd::persistence::ConsignerError<std::convert::Infallible, std::convert::Infallible>>
+//     for InternalError
+// {
+//     fn from(
+//         e: rgbstd::persistence::ConsignerError<std::convert::Infallible, std::convert::Infallible>,
+//     ) -> Self {
+//         InternalError::RgbConsigner(e.to_string())
+//     }
+// }
 
-impl From<rgbstd::persistence::InventoryDataError<std::convert::Infallible>> for InternalError {
-    fn from(e: rgbstd::persistence::InventoryDataError<std::convert::Infallible>) -> Self {
-        InternalError::RgbInventoryData(e.to_string())
-    }
-}
+// impl From<rgbstd::persistence::InventoryDataError<std::convert::Infallible>> for InternalError {
+//     fn from(e: rgbstd::persistence::InventoryDataError<std::convert::Infallible>) -> Self {
+//         InternalError::RgbInventoryData(e.to_string())
+//     }
+// }
 
-impl From<rgbstd::persistence::InventoryError<std::convert::Infallible>> for InternalError {
-    fn from(e: rgbstd::persistence::InventoryError<std::convert::Infallible>) -> Self {
-        InternalError::RgbInventory(e.to_string())
-    }
-}
+// impl From<rgbstd::persistence::InventoryError<std::convert::Infallible>> for InternalError {
+//     fn from(e: rgbstd::persistence::InventoryError<std::convert::Infallible>) -> Self {
+//         InternalError::RgbInventory(e.to_string())
+//     }
+// }
 
-impl From<invoice::TransportParseError> for Error {
-    fn from(e: invoice::TransportParseError) -> Self {
+impl From<TransportParseError> for Error {
+    fn from(e: TransportParseError) -> Self {
         Error::InvalidTransportEndpoint {
             details: e.to_string(),
         }
@@ -590,6 +595,16 @@ impl From<rgbstd::interface::BuilderError> for Error {
     fn from(e: rgbstd::interface::BuilderError) -> Self {
         Error::Internal {
             details: e.to_string(),
+        }
+    }
+}
+
+impl<S: StashProvider, H: StateProvider, P: IndexProvider, E: Display + std::error::Error>
+    From<StockError<S, H, P, E>> for Error
+{
+    fn from(value: StockError<S, H, P, E>) -> Self {
+        Error::Internal {
+            details: value.to_string(),
         }
     }
 }

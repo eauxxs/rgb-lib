@@ -2,6 +2,14 @@
 //!
 //! This module defines some utility methods.
 
+use std::ops::{Deref, DerefMut};
+
+use rgb::containers::{ValidContract, ValidTransfer};
+use rgb::interface::IfaceRef;
+use rgb::persistence::fs::{LoadFs, StoreFs};
+use rgb::ContractId;
+use rgb::MergeReveal;
+
 use super::*;
 
 const TIMESTAMP_FORMAT: &[time::format_description::BorrowedFormatItem] = time::macros::format_description!(
@@ -289,159 +297,176 @@ pub struct RgbRuntime {
     pub wallet_dir: PathBuf,
 }
 
-impl RgbRuntime {
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn accept_transfer<R: ResolveHeight>(
-        &mut self,
-        transfer: RgbTransfer,
-        resolver: &mut R,
-        force: bool,
-    ) -> Result<Status, InternalError>
-    where
-        R::Error: 'static,
-    {
-        self.stock
-            .accept_transfer(transfer, resolver, force)
-            .map_err(InternalError::from)
-    }
+impl Deref for RgbRuntime {
+    type Target = Stock;
 
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn blank_builder(
-        &mut self,
-        contract_id: ContractId,
-        iface: impl Into<TypeName>,
-    ) -> Result<TransitionBuilder, InternalError> {
-        self.stock
-            .blank_builder(contract_id, iface)
-            .map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn consume(&mut self, fascia: Fascia) -> Result<(), InternalError> {
-        self.stock.consume(fascia).map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn contract_ids(&self) -> Result<BTreeSet<ContractId>, InternalError> {
-        self.stock.contract_ids().map_err(InternalError::from)
-    }
-
-    pub(crate) fn contract_iface_id(
-        &mut self,
-        contract_id: ContractId,
-        iface_id: IfaceId,
-    ) -> Result<ContractIface, InternalError> {
-        self.stock
-            .contract_iface_id(contract_id, iface_id)
-            .map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn contracts_by_outputs(
-        &mut self,
-        outputs: impl IntoIterator<Item = impl Into<XOutputSeal>>,
-    ) -> Result<BTreeSet<ContractId>, InternalError> {
-        self.stock
-            .contracts_by_outputs(outputs)
-            .map_err(InternalError::from)
-    }
-
-    pub(crate) fn export_contract(
-        &self,
-        contract_id: ContractId,
-    ) -> Result<Contract, InternalError> {
-        self.stock
-            .export_contract(contract_id)
-            .map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn genesis(&self, contract_id: ContractId) -> Result<&Genesis, InternalError> {
-        self.stock.genesis(contract_id).map_err(InternalError::from)
-    }
-
-    pub(crate) fn iface_by_name(&self, name: &TypeName) -> Result<&Iface, InternalError> {
-        self.stock.iface_by_name(name).map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn import_contract<R: ResolveHeight>(
-        &mut self,
-        contract: Contract,
-        resolver: &mut R,
-    ) -> Result<Status, InternalError>
-    where
-        R::Error: 'static,
-    {
-        self.stock
-            .import_contract(contract, resolver)
-            .map_err(InternalError::from)
-    }
-
-    pub(crate) fn import_iface(&mut self, iface: Iface) -> Result<Status, InternalError> {
-        self.stock.import_iface(iface).map_err(InternalError::from)
-    }
-
-    pub(crate) fn import_iface_impl(&mut self, iimpl: IfaceImpl) -> Result<Status, InternalError> {
-        self.stock
-            .import_iface_impl(iimpl)
-            .map_err(InternalError::from)
-    }
-
-    pub(crate) fn import_schema(&mut self, schema: SubSchema) -> Result<Status, InternalError> {
-        self.stock
-            .import_schema(schema)
-            .map_err(InternalError::from)
-    }
-
-    pub(crate) fn schema_ids(&self) -> Result<BTreeSet<SchemaId>, InternalError> {
-        self.stock.schema_ids().map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn state_for_outpoints(
-        &mut self,
-        contract_id: ContractId,
-        outpoints: impl IntoIterator<Item = impl Into<XOutpoint>>,
-    ) -> Result<BTreeMap<(Opout, XOutputSeal), PersistedState>, InternalError> {
-        self.stock
-            .state_for_outpoints(contract_id, outpoints)
-            .map_err(InternalError::from)
-    }
-
-    pub(crate) fn store_seal_secret(
-        &mut self,
-        seal: XChain<GraphSeal>,
-    ) -> Result<(), InternalError> {
-        self.stock
-            .store_seal_secret(seal)
-            .map_err(InternalError::from)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn transfer(
-        &mut self,
-        contract_id: ContractId,
-        outputs: impl AsRef<[XOutputSeal]>,
-        secret_seals: impl AsRef<[XChain<SecretSeal>]>,
-    ) -> Result<RgbTransfer, InternalError> {
-        self.stock
-            .transfer(contract_id, outputs, secret_seals)
-            .map_err(|_| InternalError::Unexpected)
-    }
-
-    #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
-    pub(crate) fn transition_builder(
-        &mut self,
-        contract_id: ContractId,
-        iface: impl Into<TypeName>,
-        transition_name: Option<impl Into<FieldName>>,
-    ) -> Result<TransitionBuilder, InternalError> {
-        self.stock
-            .transition_builder(contract_id, iface, transition_name)
-            .map_err(InternalError::from)
+    fn deref(&self) -> &Self::Target {
+        &self.stock
     }
 }
+
+impl DerefMut for RgbRuntime {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stock
+    }
+}
+
+// impl RgbRuntime {
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn accept_transfer<R: ResolveHeight>(
+//         &mut self,
+//         transfer: ValidTransfer,
+//         resolver: &mut R,
+//         _force: bool,
+//     ) -> Result<Status, InternalError>
+// // where
+//         // R::Error: 'static,
+//     {
+//         self.stock
+//             .accept_transfer(transfer, resolver)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn blank_builder(
+//         &mut self,
+//         contract_id: ContractId,
+//         iface: impl Into<IfaceRef>,
+//     ) -> Result<TransitionBuilder, InternalError> {
+//         self.stock
+//             .blank_builder(contract_id, iface)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn consume(&mut self, fascia: Fascia) -> Result<(), InternalError> {
+//         self.stock
+//             .consume_fascia(fascia)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn contract_ids(&self) -> Result<BTreeSet<ContractId>, InternalError> {
+//         self.stock.contracts()?.map(|c| c.id).collect()
+//         // .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn contract_iface_id(
+//         &mut self,
+//         contract_id: ContractId,
+//         iface_id: IfaceRef,
+//     ) -> Result<ContractIface, InternalError> {
+//         self.stock
+//             .contract_iface(contract_id, iface_id)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn contracts_by_outputs(
+//         &mut self,
+//         outputs: impl IntoIterator<Item = impl Into<XOutputSeal>>,
+//     ) -> Result<BTreeSet<ContractId>, InternalError> {
+//         self.stock
+//             .contracts_by_outputs(outputs)
+//             .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn export_contract(
+//         &self,
+//         contract_id: ContractId,
+//     ) -> Result<Contract, InternalError> {
+//         self.stock
+//             .export_contract(contract_id)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn genesis(&self, contract_id: ContractId) -> Result<&Genesis, InternalError> {
+//         self.stock.genesis(contract_id).map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn iface_by_name(&self, name: &TypeName) -> Result<&Iface, InternalError> {
+//         self.stock.iface_by_name(name).map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn import_contract<R: ResolveHeight>(
+//         &mut self,
+//         contract: ValidContract,
+//         resolver: &mut R,
+//     ) -> Result<Status, InternalError>
+// // where
+//         // R::Error: 'static,
+//     {
+//         self.stock
+//             .import_contract(contract, resolver)
+//             .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn import_iface(&mut self, iface: Iface) -> Result<Status, InternalError> {
+//         self.stock.import_iface(iface).map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn import_iface_impl(&mut self, iimpl: IfaceImpl) -> Result<Status, InternalError> {
+//         self.stock
+//             .import_iface_impl(iimpl)
+//             .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn import_schema(&mut self, schema: SubSchema) -> Result<Status, InternalError> {
+//         self.stock
+//             .import_schema(schema)
+//             .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn schema_ids(&self) -> Result<BTreeSet<SchemaId>, InternalError> {
+//         self.stock.schema_ids().map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn state_for_outpoints(
+//         &mut self,
+//         contract_id: ContractId,
+//         outpoints: impl IntoIterator<Item = impl Into<XOutpoint>>,
+//     ) -> Result<BTreeMap<(Opout, XOutputSeal), PersistedState>, InternalError> {
+//         self.stock
+//             .state_for_outpoints(contract_id, outpoints)
+//             .map_err(InternalError::from)
+//     }
+
+//     pub(crate) fn store_seal_secret(
+//         &mut self,
+//         seal: XChain<GraphSeal>,
+//     ) -> Result<(), InternalError> {
+//         self.stock
+//             .store_secret_seal(seal)
+//             .map_err(InternalError::from)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn transfer(
+//         &mut self,
+//         contract_id: ContractId,
+//         outputs: impl AsRef<[XOutputSeal]>,
+//         secret_seals: impl AsRef<[XChain<SecretSeal>]>,
+//     ) -> Result<RgbTransfer, InternalError> {
+//         self.stock
+//             .transfer(contract_id, outputs, secret_seals)
+//             .map_err(|_| InternalError::Unexpected)
+//     }
+
+//     #[cfg_attr(not(any(feature = "electrum", feature = "esplora")), allow(dead_code))]
+//     pub(crate) fn transition_builder(
+//         &mut self,
+//         contract_id: ContractId,
+//         iface: impl Into<IfaceRef>,
+//         transition_name: Option<impl Into<FieldName>>,
+//     ) -> Result<TransitionBuilder, InternalError> {
+//         self.stock
+//             .transition_builder(contract_id, iface, transition_name)
+//             .map_err(InternalError::from)
+//     }
+// }
 
 impl Drop for RgbRuntime {
     fn drop(&mut self) {
@@ -479,7 +504,7 @@ pub fn load_rgb_runtime(wallet_dir: PathBuf) -> Result<RgbRuntime, Error> {
     if !rgb_dir.exists() {
         fs::create_dir_all(&rgb_dir)?;
     }
-    let stock_path = rgb_dir.join("stock.dat");
+    let stock_path = rgb_dir;
     let stock = Stock::load(&stock_path).or_else(|err| {
         if matches!(err, DeserializeError::Decode(DecodeError::Io(ref err)) if err.kind() == ErrorKind::NotFound) {
             let stock = Stock::default();

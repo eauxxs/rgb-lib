@@ -101,6 +101,8 @@ fn success() {
 #[test]
 #[parallel]
 fn fail() {
+    use rgb::ContractId;
+
     initialize();
 
     let (wallet, online) = get_funded_wallet!();

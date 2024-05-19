@@ -6,12 +6,12 @@ use std::{
 };
 
 use bdk::descriptor::Descriptor;
+use ifaces::rgb21::TokenData;
 use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 use regex::RegexSet;
-use rgbstd::{
-    interface::rgb21::EmbeddedMedia as RgbEmbeddedMedia, stl::ProofOfReserves as RgbProofOfReserves,
-};
+use rgbstd::stl::ProofOfReserves as RgbProofOfReserves;
+//interface::rgb21::EmbeddedMedia as RgbEmbeddedMedia,
 use serial_test::{parallel, serial};
 use time::OffsetDateTime;
 
@@ -150,7 +150,7 @@ pub fn mock_asset_terms(
     wallet: &Wallet,
     text: RicardianContract,
     media: Option<Attachment>,
-) -> AssetTerms {
+) -> ContractTerms {
     let mut mock_reqs = MOCK_CONTRACT_DATA.lock().unwrap();
     if mock_reqs.is_empty() {
         wallet.new_asset_terms(text, media)
@@ -165,6 +165,7 @@ lazy_static! {
     static ref MOCK_TOKEN_DATA: Mutex<Vec<TokenData>> = Mutex::new(vec![]);
 }
 
+use rgb::TokenIndex;
 #[cfg(any(feature = "electrum", feature = "esplora"))]
 pub fn mock_token_data(
     wallet: &Wallet,

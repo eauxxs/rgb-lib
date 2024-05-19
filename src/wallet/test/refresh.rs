@@ -326,7 +326,7 @@ fn nia_with_media() {
     let media_type = MediaType::with(media_ty);
     let attachment = Attachment {
         ty: media_type,
-        digest,
+        digest: digest.into(),
     };
     MOCK_CONTRACT_DATA.lock().unwrap().push(attachment.clone());
     let asset = test_issue_asset_nia(&wallet_1, &online_1, None);
@@ -482,6 +482,8 @@ fn nia_with_details() {
 #[test]
 #[serial]
 fn uda_with_preview_and_reserves() {
+    use ifaces::rgb21::EmbeddedMedia;
+
     initialize();
 
     let amount: u64 = 1;
@@ -492,7 +494,7 @@ fn uda_with_preview_and_reserves() {
 
     let data = vec![1u8, 3u8, 9u8];
     let preview_ty = "text/plain";
-    let preview = RgbEmbeddedMedia {
+    let preview = EmbeddedMedia {
         ty: MediaType::with(preview_ty),
         data: Confined::try_from(data.clone()).unwrap(),
     };
@@ -577,7 +579,7 @@ fn uda_with_preview_and_reserves() {
     assert_eq!(transfer_data.status, TransferStatus::Settled);
 
     let uda_metadata = test_get_asset_metadata(&wallet_3, &asset.asset_id);
-    assert_eq!(uda_metadata.asset_iface, AssetIface::RGB21);
+    assert_eq!(uda_metadata.asset_iface, AssetIface::RGB21Unique);
     assert_eq!(uda_metadata.asset_schema, AssetSchema::Uda);
     assert_eq!(uda_metadata.issued_supply, 1);
     assert_eq!(uda_metadata.name, NAME.to_string());

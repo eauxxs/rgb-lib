@@ -2,6 +2,10 @@
 //!
 //! This module defines the offline methods of the [`Wallet`] structure and all its related data.
 
+use ifaces::{rgb20, rgb21, rgb25, IssuerWrapper, Rgb20, Rgb21, Rgb25};
+use rgb::{containers::Kit, ContractId, GraphSeal, Identity};
+use schemata::{CollectibleFungibleAsset, NonInflatableAsset, UniqueDigitalAsset};
+
 use super::*;
 
 pub(crate) const RGB_LIB_DB_NAME: &str = "rgb_lib_db";
@@ -25,21 +29,21 @@ pub(crate) const DURATION_RCV_TRANSFER: u32 = 86400;
 const PROXY_TIMEOUT: u8 = 90;
 
 pub(crate) const SCHEMA_ID_NIA: &str =
-    "urn:lnp-bp:sc:2wFrMq-DQGYEXLx-YN5TgGiv-M7uxbA56-yqCtf7rd-MNTSvC#carol-politic-lima";
+    "rgb:sch:KzMZV9bO7gFhox97@klj0FonG2ZKnjuOIg2tFChu$YA#lucas-episode-silicon";
 pub(crate) const SCHEMA_ID_UDA: &str =
-    "urn:lnp-bp:sc:bBaser-EMBDKaHk-o1gnNUrN-JzoYNYWW-PkEqD1t3-VHcvx#vital-papa-time";
+    "rgb:sch:zsu4e2XePxL$CV62b5zrHzViasqEfara441L9t@1wVo#jungle-valid-summer";
 pub(crate) const SCHEMA_ID_CFA: &str =
-    "urn:lnp-bp:sc:MCpHX1-1FrUH41Q-7vb9EABB-CaggZc6b-qDiZUZhi-4HvSt#alien-profile-sushi";
+    "rgb:sch:WyrI$aUDuVjbYe10jDRYw$R7vQ0r4DSTitf4Wfx$La8#mister-clinic-history";
 
 /// The interface of an RGB asset.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub enum AssetIface {
     /// RGB20 interface
-    RGB20,
+    RGB20Fixed,
     /// RGB21 interface
-    RGB21,
+    RGB21Unique,
     /// RGB25 interface
-    RGB25,
+    RGB25Base,
 }
 
 impl AssetIface {
@@ -60,7 +64,7 @@ impl AssetIface {
         medias: Option<Vec<DbMedia>>,
     ) -> Result<AssetType, Error> {
         let media = match &self {
-            AssetIface::RGB20 | AssetIface::RGB25 => {
+            AssetIface::RGB20Fixed | AssetIface::RGB25Base => {
                 let medias = if let Some(m) = medias {
                     m
                 } else {
@@ -71,7 +75,7 @@ impl AssetIface {
                     .find(|m| Some(m.idx) == asset.media_idx)
                     .map(|m| Media::from_db_media(m, wallet.media_dir()))
             }
-            AssetIface::RGB21 => None,
+            AssetIface::RGB21Unique => None,
         };
         let balance = wallet.database.get_asset_balance(
             asset.id.clone(),
@@ -83,7 +87,7 @@ impl AssetIface {
         )?;
         let issued_supply = asset.issued_supply.parse::<u64>().unwrap();
         Ok(match &self {
-            AssetIface::RGB20 => AssetType::AssetNIA(AssetNIA {
+            AssetIface::RGB20Fixed => AssetType::AssetNIA(AssetNIA {
                 asset_id: asset.id.clone(),
                 asset_iface: self.clone(),
                 ticker: asset.ticker.clone().unwrap(),
@@ -96,7 +100,7 @@ impl AssetIface {
                 balance,
                 media,
             }),
-            AssetIface::RGB21 => AssetType::AssetUDA(AssetUDA {
+            AssetIface::RGB21Unique => AssetType::AssetUDA(AssetUDA {
                 asset_id: asset.id.clone(),
                 asset_iface: self.clone(),
                 details: asset.details.clone(),
@@ -109,7 +113,7 @@ impl AssetIface {
                 balance,
                 token,
             }),
-            AssetIface::RGB25 => AssetType::AssetCFA(AssetCFA {
+            AssetIface::RGB25Base => AssetType::AssetCFA(AssetCFA {
                 asset_id: asset.id.clone(),
                 asset_iface: self.clone(),
                 name: asset.name.clone(),
@@ -128,9 +132,9 @@ impl AssetIface {
 impl From<AssetSchema> for AssetIface {
     fn from(x: AssetSchema) -> AssetIface {
         match x {
-            AssetSchema::Nia => AssetIface::RGB20,
-            AssetSchema::Uda => AssetIface::RGB21,
-            AssetSchema::Cfa => AssetIface::RGB25,
+            AssetSchema::Nia => AssetIface::RGB20Fixed,
+            AssetSchema::Uda => AssetIface::RGB21Unique,
+            AssetSchema::Cfa => AssetIface::RGB25Base,
         }
     }
 }
@@ -140,9 +144,9 @@ impl TryFrom<TypeName> for AssetIface {
 
     fn try_from(value: TypeName) -> Result<Self, Self::Error> {
         match value.to_string().as_str() {
-            "RGB20" => Ok(AssetIface::RGB20),
-            "RGB21" => Ok(AssetIface::RGB21),
-            "RGB25" => Ok(AssetIface::RGB25),
+            "RGB20Fixed" => Ok(AssetIface::RGB20Fixed),
+            "RGB21Unique" => Ok(AssetIface::RGB21Unique),
+            "RGB25Base" => Ok(AssetIface::RGB25Base),
             _ => Err(Error::UnknownRgbInterface {
                 interface: value.to_string(),
             }),
@@ -254,7 +258,7 @@ impl AssetNIA {
         txos: Option<Vec<DbTxo>>,
         medias: Option<Vec<DbMedia>>,
     ) -> Result<AssetNIA, Error> {
-        match AssetIface::RGB20.get_asset_details(
+        match AssetIface::RGB20Fixed.get_asset_details(
             wallet,
             asset,
             None,
@@ -369,7 +373,7 @@ impl AssetUDA {
         colorings: Option<Vec<DbColoring>>,
         txos: Option<Vec<DbTxo>>,
     ) -> Result<AssetUDA, Error> {
-        match AssetIface::RGB21.get_asset_details(
+        match AssetIface::RGB21Unique.get_asset_details(
             wallet,
             asset,
             token,
@@ -422,7 +426,7 @@ impl AssetCFA {
         txos: Option<Vec<DbTxo>>,
         medias: Option<Vec<DbMedia>>,
     ) -> Result<AssetCFA, Error> {
-        match AssetIface::RGB25.get_asset_details(
+        match AssetIface::RGB25Base.get_asset_details(
             wallet,
             asset,
             None,
@@ -1031,6 +1035,7 @@ pub struct Wallet {
     max_allocations_per_utxo: u32,
     #[cfg(any(feature = "electrum", feature = "esplora"))]
     pub(crate) online_data: Option<OnlineData>,
+    pub(crate) issuer: Identity,
 }
 
 impl Wallet {
@@ -1113,18 +1118,55 @@ impl Wallet {
 
         // RGB setup
         let mut runtime = load_rgb_runtime(wallet_dir.clone())?;
-        if runtime.schema_ids()?.len() < NUM_KNOWN_SCHEMAS {
-            runtime.import_iface(Rgb20::iface())?;
-            runtime.import_schema(NonInflatableAsset::schema())?;
-            runtime.import_iface_impl(NonInflatableAsset::issue_impl())?;
+        if runtime.schemata()?.count() < NUM_KNOWN_SCHEMAS {
+            {
+                let schema = NonInflatableAsset::schema();
+                let iimpl = NonInflatableAsset::issue_impl();
+                let lib = NonInflatableAsset::scripts();
+                let types = NonInflatableAsset::types();
 
-            runtime.import_iface(Rgb21::iface())?;
-            runtime.import_schema(uda_schema())?;
-            runtime.import_iface_impl(uda_rgb21())?;
+                let mut kit = Kit::default();
+                kit.schemata.push(schema).unwrap();
+                kit.ifaces
+                    .push(Rgb20::iface(rgb20::Features::FIXED))
+                    .unwrap();
+                kit.iimpls.push(iimpl).unwrap();
+                kit.scripts.extend(lib.into_values()).unwrap();
+                kit.types = types;
+                runtime.import_kit(kit.validate().unwrap()).unwrap();
+            }
+            {
+                let schema = UniqueDigitalAsset::schema();
+                let iimpl = UniqueDigitalAsset::issue_impl();
+                let lib = UniqueDigitalAsset::scripts();
+                let types = UniqueDigitalAsset::types();
 
-            runtime.import_iface(Rgb25::iface())?;
-            runtime.import_schema(cfa_schema())?;
-            runtime.import_iface_impl(cfa_rgb25())?;
+                let mut kit = Kit::default();
+                kit.schemata.push(schema).unwrap();
+                kit.ifaces
+                    .push(Rgb21::iface(rgb21::Features::NONE))
+                    .unwrap();
+                kit.iimpls.push(iimpl).unwrap();
+                kit.scripts.extend(lib.into_values()).unwrap();
+                kit.types = types;
+                runtime.import_kit(kit.validate().unwrap()).unwrap();
+            }
+            {
+                let schema = CollectibleFungibleAsset::schema();
+                let iimpl = CollectibleFungibleAsset::issue_impl();
+                let lib = CollectibleFungibleAsset::scripts();
+                let types = CollectibleFungibleAsset::types();
+
+                let mut kit = Kit::default();
+                kit.schemata.push(schema).unwrap();
+                kit.ifaces
+                    .push(Rgb25::iface(rgb25::Features::NONE))
+                    .unwrap();
+                kit.iimpls.push(iimpl).unwrap();
+                kit.scripts.extend(lib.into_values()).unwrap();
+                kit.types = types;
+                runtime.import_kit(kit.validate().unwrap()).unwrap();
+            }
         }
 
         // RGB-LIB setup
@@ -1158,6 +1200,7 @@ impl Wallet {
             max_allocations_per_utxo: wdata.max_allocations_per_utxo,
             #[cfg(any(feature = "electrum", feature = "esplora"))]
             online_data: None,
+            issuer: Identity::from_str("123").unwrap(),
         })
     }
 
@@ -1512,7 +1555,7 @@ impl Wallet {
             )?;
 
         let mut runtime = self.rgb_runtime()?;
-        runtime.store_seal_secret(seal)?;
+        runtime.store_secret_seal(seal)?;
 
         let db_coloring = DbColoringActMod {
             txo_idx: ActiveValue::Set(utxo.idx),
@@ -1781,9 +1824,10 @@ impl Wallet {
         contract_id: ContractId,
     ) -> Result<ContractIface, Error> {
         let iface_name = AssetIface::from(*asset_schema).to_typename();
-        let iface = runtime.iface_by_name(&iface_name)?.clone();
+        let iface = runtime.stock.iface(iface_name)?.clone();
         runtime
-            .contract_iface_id(contract_id, iface.iface_id())
+            .stock
+            .contract_iface(contract_id, iface.iface_id())
             .map_err(|_| Error::AssetIfaceMismatch)
     }
 

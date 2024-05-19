@@ -425,7 +425,7 @@ pub(crate) fn test_save_new_asset(
         rcv_wallet.testnet(),
     ) {
         Ok(consignment) => consignment,
-        Err(consignment) => consignment,
+        Err(_consignment) => unreachable!(),
     };
 
     let mut runtime = rcv_wallet.rgb_runtime().unwrap();
@@ -437,12 +437,13 @@ pub(crate) fn test_save_new_asset(
         .unwrap();
     let schema_id = minimal_contract_validated.schema_id().to_string();
     let asset_schema = AssetSchema::from_schema_id(schema_id).unwrap();
+
     rcv_wallet
         .save_new_asset(
             &mut runtime,
             &asset_schema,
             minimal_contract_validated.contract_id(),
-            Some(minimal_contract_validated),
+            Some(minimal_contract_validated.into_consignment()),
         )
         .unwrap();
 }
